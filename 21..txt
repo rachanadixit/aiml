@@ -1,0 +1,91 @@
+21.
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv("brca.csv")
+
+data
+data.shape
+data.isnull().sum()
+
+data['y'] = data['y'].map({'M': 1, 'B': 0})
+
+X = data.drop(columns=['y']).values
+y = data['y'].values
+
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+X_train.shape
+X_test.shape
+
+def polynomial_kernel(X1, X2, degree=2, c=1):
+    return (np.dot(X1, X2.T) + c) ** degree
+
+class SVMPolynomial:
+    def __init__(self, learning_rate=0.001, lambda_param=0.01, n_iters=1000, degree=2, c=1):
+        self.lr = learning_rate
+        self.lambda_param = lambda_param
+        self.n_iters = n_iters
+        self.degree = degree
+        self.c = c
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        y_ = np.where(y <= 0, -1, 1)
+        self.alpha = np.zeros(n_samples)
+        self.K = polynomial_kernel(X, X, self.degree, self.c)
+
+        for _ in range(self.n_iters):
+            for i in range(n_samples):
+                condition = y_[i] * (np.sum(self.alpha * y_ * self.K[:, i])) >= 1
+                if condition:
+                    self.alpha[i] -= self.lr * (2 * self.lambda_param * self.alpha[i])
+                else:
+                    self.alpha[i] += self.lr * (1 - y_[i] * np.sum(self.alpha * y_ * self.K[:, i]))
+
+        self.X_train = X
+        self.y_train = y_
+
+    def project(self, X):
+        K = polynomial_kernel(X, self.X_train, self.degree, self.c)
+        return np.dot(K, self.alpha * self.y_train)
+
+    def predict(self, X):
+        return np.sign(self.project(X))
+
+svm_poly = SVMPolynomial(learning_rate=0.001, lambda_param=0.01, n_iters=100, degree=2, c=1)
+svm_poly.fit(X_train, y_train)
+
+y_pred = svm_poly.predict(X_test)
+y_pred = np.where(y_pred == -1, 0, 1)
+
+confusion_matrix(y_test, y_pred)
+
+cm = confusion_matrix(y_test, y_pred)
+cm
+
+accuracy = np.mean(y_pred == y_test) * 100
+accuracy
+
+fpr, tpr, _ = roc_curve(y_test, y_pred)
+roc_auc = auc(fpr, tpr)
+
+plt.figure(figsize=(6,5))
+plt.plot(fpr, tpr, lw=2, label=f"AUC = {roc_auc:.2f}")
+plt.plot([0, 1], [0, 1], linestyle='--', color='red')
+plt.title("ROC Curve - Polynomial Kernel SVM (From Scratch)")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.legend()
+plt.grid(True)
+plt.show()

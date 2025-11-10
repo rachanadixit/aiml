@@ -1,0 +1,69 @@
+16.17.
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv("/content/emails_16_17_18_19 (1).csv")
+
+data
+data.shape
+data.isnull().sum()
+
+data = data.drop(['Email No.'], axis=1)
+data = data.sample(n=1500, random_state=42).reset_index(drop=True)
+
+X = data.drop('Prediction', axis=1).astype(np.float32).values
+y = data['Prediction'].astype(int).values
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+class naiveBayesFromScratch:
+    def fit(self, X, y, alpha=1.0):
+        self.classes = np.unique(y)
+        n_samples, n_features = X.shape
+        self.class_feature_count = np.zeros((len(self.classes), n_features))
+        self.class_count = np.zeros(len(self.classes))
+
+        for idx, c in enumerate(self.classes):
+            X_c = X[y == c]
+            self.class_feature_count[idx, :] = X_c.sum(axis=0)
+            self.class_count[idx] = X_c.shape[0]
+
+        self.class_priors = self.class_count / n_samples
+        self.feature_log_prob = np.log(
+            (self.class_feature_count + alpha) /
+            (self.class_feature_count.sum(axis=1).reshape(-1, 1) + alpha * n_features)
+        )
+
+    def _predict_single(self, x):
+        log_posteriors = []
+        for idx, c in enumerate(self.classes):
+            log_prior = np.log(self.class_priors[idx])
+            log_likelihood = np.sum(x * self.feature_log_prob[idx, :])
+            log_posteriors.append(log_prior + log_likelihood)
+        return self.classes[np.argmax(log_posteriors)]
+
+    def predict(self, X):
+        return np.array([self._predict_single(x) for x in X])
+
+nb = naiveBayesFromScratch()
+nb.fit(X_train, y_train)
+
+y_pred = nb.predict(X_test)
+
+accuracy_score(y_test, y_pred)
+confusion_matrix(y_test, y_pred)
+classification_report(y_test, y_pred)
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title("Confusion Matrix (Naive Bayes From Scratch)")
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.show()

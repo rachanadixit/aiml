@@ -1,0 +1,86 @@
+20.
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv("student_performance.csv")
+
+data
+data.shape
+data.isnull().sum()
+
+data = data[[
+    "Study_Hours_per_Week",
+    "Attendance_Rate",
+    "Internal_Scores",
+    "Pass_Fail"
+]]
+
+le_passfail = LabelEncoder()
+data["Pass_Fail"] = le_passfail.fit_transform(data["Pass_Fail"])
+
+data
+data.shape
+
+X = data[["Study_Hours_per_Week", "Attendance_Rate", "Internal_Scores"]].values
+y = data["Pass_Fail"].values
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42
+)
+
+X_train.shape
+X_test.shape
+
+def polynomial_kernel(X1, X2, degree=3, c=1):
+    return (np.dot(X1, X2.T) + c) ** degree
+
+class SVMPolynomial:
+    def __init__(self, learning_rate=0.001, lambda_param=0.01, n_iters=1000, degree=3, c=1):
+        self.lr = learning_rate
+        self.lambda_param = lambda_param
+        self.n_iters = n_iters
+        self.degree = degree
+        self.c = c
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        y_ = np.where(y <= 0, -1, 1)
+        self.alpha = np.zeros(n_samples)
+        self.K = polynomial_kernel(X, X, self.degree, self.c)
+
+        for _ in range(self.n_iters):
+            for i in range(n_samples):
+                condition = y_[i] * (np.sum(self.alpha * y_ * self.K[:, i])) >= 1
+                if condition:
+                    self.alpha[i] -= self.lr * (2 * self.lambda_param * self.alpha[i])
+                else:
+                    self.alpha[i] += self.lr * (1 - y_[i] * np.sum(self.alpha * y_ * self.K[:, i]))
+
+        self.X_train = X
+        self.y_train = y_
+
+    def project(self, X):
+        K = polynomial_kernel(X, self.X_train, self.degree, self.c)
+        return np.dot(K, self.alpha * self.y_train)
+
+    def predict(self, X):
+        pred = self.project(X)
+        return np.sign(pred)
+
+svm_poly = SVMPolynomial(learning_rate=0.001, lambda_param=0.01, n_iters=100, degree=2, c=1)
+svm_poly.fit(X_train, y_train)
+
+y_pred = svm_poly.predict(X_test)
+y_pred = np.where(y_pred == -1, 0, 1)
+
+accuracy_score(y_test, y_pred)
+confusion_matrix(y_test, y_pred)
+classification_report(y_test, y_pred)

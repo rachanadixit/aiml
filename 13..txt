@@ -1,0 +1,62 @@
+13.
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("Student.csv")
+print(df)
+df.shape
+df.isnull().sum()
+
+X = df[['hours_studied','attendance_percent','Internal_marks']]
+y = df['exam_score']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+y_pred_test = model.predict(X_test)
+r2 = r2_score(y_test, y_pred_test)
+mse = mean_squared_error(y_test, y_pred_test)
+
+k = 5
+n = len(X)
+fold_size = n // k
+
+r2_scores = []
+
+for i in range(k):
+    start = i * fold_size
+    end = (i + 1) * fold_size
+
+    X_test_fold = X.iloc[start:end]
+    y_test_fold = y.iloc[start:end]
+
+    X_train_fold = pd.concat([X.iloc[:start], X.iloc[end:]])
+    y_train_fold = pd.concat([y.iloc[:start], y.iloc[end:]])
+
+    model = LinearRegression()
+    model.fit(X_train_fold, y_train_fold)
+
+    y_pred_fold = model.predict(X_test_fold)
+
+    r2_fold = r2_score(y_test_fold, y_pred_fold)
+    r2_scores.append(r2_fold)
+
+np.mean(r2_scores)
+
+plt.figure(figsize=(7,5))
+plt.scatter(y_test, y_pred_test, color='blue', label='Predicted vs Actual')
+plt.plot(y_test, y_test, color='red', linewidth=2, label='Perfect Fit')
+plt.xlabel("Actual Exam Scores")
+plt.ylabel("Predicted Exam Scores")
+plt.title("Actual vs Predicted Exam Scores (Linear Regression)")
+plt.legend()
+plt.grid(True)
+plt.show()

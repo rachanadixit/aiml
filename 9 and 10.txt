@@ -1,0 +1,104 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+
+data = pd.read_csv("uber.csv", encoding='latin-1')
+
+data
+data.shape
+data.columns
+data.info()
+data.isnull().sum()
+
+data = data.drop(['Unnamed: 0', 'key'], axis=1)
+data = data.dropna()
+
+data.isnull().sum()
+
+data['pickup_datetime'] = pd.to_datetime(data['pickup_datetime'])
+data['pickup_datetime'].head(10)
+
+data['hour'] = data["pickup_datetime"].dt.hour
+data['day'] = data["pickup_datetime"].dt.day
+data['month'] = data["pickup_datetime"].dt.month
+data['year'] = data["pickup_datetime"].dt.year
+data['weekday'] = data["pickup_datetime"].dt.weekday
+
+data.describe()
+
+plt.figure(figsize=(12,6))
+sns.heatmap(data.corr(numeric_only=True), annot=True, cmap="coolwarm")
+plt.title("Correlation Heatmap")
+plt.show()
+
+plt.figure(figsize=(6,4))
+sns.histplot(data['fare_amount'], bins=50, kde=True, color="red")
+plt.show()
+
+plt.figure(figsize=(5,3))
+sns.countplot(x='passenger_count', data=data)
+plt.show()
+
+data['distance'] = np.sqrt(
+    (data['dropoff_latitude'] - data['pickup_latitude'])**2 +
+    (data['dropoff_longitude'] - data['pickup_longitude'])**2
+)
+
+plt.figure(figsize=(6,4))
+sns.scatterplot(x='distance', y='fare_amount', data=data, alpha=0.4)
+plt.show()
+
+data.columns
+
+data = data[(data['fare_amount'] > 0) & (data['distance'] < 5)]
+data.shape
+
+X = data[['pickup_longitude', 'pickup_latitude',
+          'dropoff_longitude', 'dropoff_latitude', 'passenger_count',
+          'hour', 'day', 'month', 'year', 'weekday', 'distance']]
+y = data['fare_amount']
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42
+)
+
+lr_nopca = LinearRegression()
+lr_nopca.fit(X_train, y_train)
+y_pred = lr_nopca.predict(X_test)
+
+mse_no = np.mean((y_test - y_pred)**2)
+rmse_no = np.sqrt(mse_no)
+r2_no = 1 - (np.sum((y_test - y_pred)**2) / np.sum((y_test - np.mean(y_test))**2))
+mae_no = np.mean(np.abs(y_test - y_pred))
+
+rmse_no
+r2_no
+mae_no
+
+pca = PCA(n_components=8)
+X_pca = pca.fit_transform(X_scaled)
+
+X_train_pca, X_test_pca, y_train_pca, y_test_pca = train_test_split(
+    X_pca, y, test_size=0.2, random_state=42
+)
+
+lr_pca = LinearRegression()
+lr_pca.fit(X_train_pca, y_train_pca)
+y_pred_pca = lr_pca.predict(X_test_pca)
+
+mse_p = np.mean((y_test_pca - y_pred_pca)**2)
+rmse_p = np.sqrt(mse_p)
+r2_p = 1 - (np.sum((y_test_pca - y_pred_pca)**2) / np.sum((y_test_pca - np.mean(y_test_pca))**2))
+mae_p = np.mean(np.abs(y_test_pca - y_pred_pca))
+
+rmse_p
+r2_p
+mae_p

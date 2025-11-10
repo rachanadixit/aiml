@@ -1,0 +1,70 @@
+14.
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+
+data = pd.read_csv("Salary Data.csv")
+
+data
+data.shape
+data.isnull().sum()
+
+data = data.dropna()
+
+data.isnull().sum()
+
+le1 = LabelEncoder()
+le2 = LabelEncoder()
+
+data["Education Level"] = le1.fit_transform(data["Education Level"])
+data["Job Title"] = le2.fit_transform(data["Job Title"])
+
+data.head()
+
+X = data[["Education Level", "Job Title", "Years of Experience"]]
+y = data["Salary"]
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, random_state=42, test_size=0.2
+)
+
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+
+y_pred = lr.predict(X_test)
+
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
+
+k = 5
+n = len(X)
+fold_size = n // k
+
+r2_scores = []
+
+for i in range(k):
+    start = i * fold_size
+    end = (i + 1) * fold_size
+
+    X_test_fold = X.iloc[start:end]
+    y_test_fold = y.iloc[start:end]
+
+    X_train_fold = pd.concat([X.iloc[:start], X.iloc[end:]])
+    y_train_fold = pd.concat([y.iloc[:start], y.iloc[end:]])
+
+    model = LinearRegression()
+    model.fit(X_train_fold, y_train_fold)
+
+    y_pred_fold = model.predict(X_test_fold)
+
+    r2_fold = r2_score(y_test_fold, y_pred_fold)
+    r2_scores.append(r2_fold)
+
+np.mean(r2_scores)
